@@ -1,0 +1,308 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Carga animal en recría · Simulador Agro</title>
+<link rel="stylesheet" href="../../comun/sim.css">
+</head>
+<body>
+<div class="cont">
+  <header class="tapa">
+    <a class="volver" href="../../index.html">← Todas las simulaciones</a>
+    <h1>Carga animal en recría</h1>
+    <p class="bajada">¿Cuántos terneros aguanta tu campo? Probá cargas, recursos forrajeros y suplementación sobre cada año real de tu localidad, y mirá qué pasa cuando viene seco.</p>
+  </header>
+
+  <section class="panel">
+    <h2><span class="paso">1</span>Tu caso</h2>
+    <div id="clima"></div>
+    <div class="grilla" style="margin-top:14px">
+      <label class="campo">Tipo de pastura<select id="pastura"><option value="alfalfa">Base alfalfa</option><option value="templada">Templada (festuca y tréboles)</option></select></label>
+      <label class="campo">Pastura: <span id="pctP-v"></span> % del campo<input type="range" id="pctP" min="0" max="100" step="5" value="60"></label>
+      <label class="campo">Verdeo de invierno: <span id="pctV-v"></span> % del campo<input type="range" id="pctV" min="0" max="100" step="5" value="20"><small id="pct-nota"></small></label>
+      <label class="campo">Nivel productivo: <span id="nivel-v"></span> % de la curva de referencia<input type="range" id="nivel" min="50" max="130" step="5" value="100"><small id="nivel-nota"></small></label>
+    </div>
+    <h3>Precios vigentes</h3>
+    <p class="nota" id="precio-derivado"></p>
+    <div id="precios"></div>
+    <details style="margin-top:10px"><summary class="nota" style="cursor:pointer">Costos del planteo (editables)</summary>
+      <div class="grilla" style="margin-top:10px">
+        <label class="campo">Costo anual de la pastura (USD/ha)<input type="number" id="cP" step="10"></label>
+        <label class="campo">Costo anual del verdeo (USD/ha)<input type="number" id="cV" step="10"></label>
+        <label class="campo">Gastos de compra y de venta (% de cada operación)<input type="number" id="comerc" step="0.5"></label>
+        <label class="campo">Sanidad (USD por cabeza)<input type="number" id="sanidad" step="1"></label>
+        <label class="campo">Mortandad (%)<input type="number" id="mort" step="0.5"></label>
+      </div>
+    </details>
+  </section>
+
+  <section class="panel">
+    <h2><span class="paso">2</span>Tu ruta</h2>
+    <div class="fila" style="margin-bottom:12px">
+      <span class="nota">Empezar desde:</span>
+      <button type="button" class="chip" data-pre="liviana">Carga liviana, a pasto</button>
+      <button type="button" class="chip" data-pre="media">Carga media con suplemento estratégico</button>
+      <button type="button" class="chip" data-pre="alta">Carga alta, suplemento todo el invierno</button>
+    </div>
+    <div class="grilla">
+      <label class="campo">Carga: <span id="carga-v"></span> cabezas/ha<input type="range" id="carga" min="0.5" max="7" step="0.1"></label>
+      <label class="campo">Mes de entrada<select id="mesEntrada"><option value="3">Marzo</option><option value="4">Abril</option><option value="5">Mayo</option><option value="6">Junio</option><option value="9">Septiembre</option></select></label>
+      <label class="campo">Peso de entrada: <span id="pesoEntrada-v"></span> kg<input type="range" id="pesoEntrada" min="140" max="260" step="5"></label>
+      <label class="campo">Peso de venta buscado: <span id="pesoVenta-v"></span> kg<input type="range" id="pesoVenta" min="280" max="460" step="10"><small id="venta-nota"></small></label>
+      <label class="campo">Vender como máximo a los <span id="maxMeses-v"></span> meses<input type="range" id="maxMeses" min="6" max="18" step="1"></label>
+      <label class="campo">Suplementación con maíz<select id="suplModo"><option value="nunca">Nunca</option><option value="deficit">Solo los meses que falta pasto</option><option value="invierno">Todo el invierno (mayo a agosto)</option></select></label>
+      <label class="campo" id="bloque-supl">Ración: <span id="suplKg-v"></span> kg de grano por cabeza y por día<input type="range" id="suplKg" min="0.5" max="5" step="0.5"></label>
+    </div>
+    <div class="fila" style="margin-top:16px">
+      <input type="text" id="ruta-nombre" placeholder="Nombre de la ruta" style="max-width:260px" aria-label="Nombre de la ruta">
+      <button type="button" class="btn" id="guardar">Guardar ruta para comparar</button>
+      <span class="nota" id="guardar-nota"></span>
+    </div>
+  </section>
+
+  <div id="sin-clima" class="vacio" style="margin-top:18px">Cargá tu localidad en el paso 1 para ver los resultados.</div>
+
+  <div id="resultados" hidden>
+    <section class="panel">
+      <h2><span class="paso">3</span>Cómo le va a esta ruta entrando en cada uno de <span id="n-camp"></span> años reales</h2>
+      <div class="kpis" id="kpis"></div>
+      <div class="leyenda"><span><i style="background:var(--seca)"></i>año seco</span><span><i style="background:var(--normal)"></i>normal</span><span><i style="background:var(--humeda)"></i>húmedo</span><span>(según la lluvia de los 12 meses desde la entrada). Tocá una barra para ver ese ciclo.</span></div>
+      <div class="fila"><button type="button" class="chip activo" data-ver="margen">Margen por ha y por año</button><button type="button" class="chip" data-ver="kg">Kilos producidos</button><button type="button" class="chip" data-ver="peso">Peso de venta</button></div>
+      <div id="graf-anios"></div>
+      <h3>¿Dónde está el techo? La misma ruta con otras cargas</h3>
+      <div class="leyenda"><span><i style="background:var(--verde)"></i>margen mediano (USD/ha/año)</span><span><i style="background:var(--rojo)"></i>margen del peor año</span><span>La barra con borde es tu carga.</span></div>
+      <div id="graf-carga"></div>
+      <p class="nota" id="carga-nota"></p>
+    </section>
+
+    <section class="panel">
+      <h2><span class="paso">4</span>El ciclo que entra en <span id="camp-etq"></span>, mes por mes</h2>
+      <div class="fila"><select id="camp-sel" style="max-width:240px" aria-label="Año de entrada"></select></div>
+      <div class="leyenda" style="margin-top:10px"><span><i style="background:var(--verde)"></i>pasto que el campo puede dar (kg MS/ha por mes)</span><span><i style="background:var(--rojo)"></i>pasto que pide la hacienda</span><span><i style="background:var(--ocre)"></i>peso vivo (kg, eje derecho)</span></div>
+      <div id="graf-camp"></div>
+      <div class="kpis" id="kpis-camp"></div>
+      <div class="tabla-scroll" id="tabla-camp"></div>
+    </section>
+
+    <section class="panel">
+      <h2><span class="paso">5</span>Comparar rutas</h2>
+      <p class="nota">Todas se recalculan con tu caso y los precios de hoy.</p>
+      <div class="tabla-scroll" id="comparar"></div>
+    </section>
+  </div>
+
+  <section class="panel">
+    <details class="fuentes"><summary>Fuentes, supuestos y límites del modelo</summary>
+      <p class="nota"><strong>Qué hace:</strong> balance forrajero mes a mes. El pasto que crece sale de curvas de referencia por recurso, corregidas cada mes por el agua disponible en tu localidad ese año. La ganancia de peso sale de la energía que come el animal menos la que gasta en mantenerse.</p>
+      <p class="nota"><strong>Cuánto confiar:</strong> esta simulación tiene más supuestos que la de riego. Las curvas de la pastura templada y del campo natural y los coeficientes de consumo y energía son valores de trabajo, no mediciones de tu campo. Usala para comparar rutas entre sí y ver el efecto de los años secos, más que para leer un margen exacto. Si tenés mediciones de tu pasto, ajustá el nivel productivo hasta que coincida.</p>
+      <p class="nota"><strong>Qué no contempla:</strong> efecto del frío y de las heladas sobre el crecimiento, calidad cambiante del pasto dentro del año, reservas (rollos, silo), encierre a corral, diferencias entre lotes, impuestos, costo del capital inmovilizado en hacienda ni personal. El precio de compra y el de venta son los de hoy para todos los años: el riesgo que se muestra es climático, no de mercado.</p>
+      <div id="fuentes"></div>
+    </details>
+  </section>
+  <p class="aviso-pie">Herramienta de exploración: no reemplaza a un asesor ni a un proyecto de inversión formal.</p>
+</div>
+
+<script src="../../comun/precios.js"></script>
+<script src="../../comun/sim.js"></script>
+<script src="../../comun/clima.js"></script>
+<script src="datos.js"></script>
+<script src="modelo.js"></script>
+<script>
+(function () {
+  var D = DATOS_RECRIA.params, R = DATOS_RECRIA.recursos, M = MODELO_RECRIA, $ = function (id) { return document.getElementById(id); };
+  var serie = null, F = null, anios = [], clases = {}, corrida = null, ver = "margen", campSel = null;
+  var rutas = SIM.rutas("carga-animal-recria");
+  var MESES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+  var PRE = {
+    liviana: { carga: 1.5, mesEntrada: 4, pesoEntrada: 180, pesoVenta: 380, maxMeses: 14, suplModo: "nunca", suplKg: 2 },
+    media: { carga: 3, mesEntrada: 4, pesoEntrada: 180, pesoVenta: 380, maxMeses: 14, suplModo: "deficit", suplKg: 2 },
+    alta: { carga: 4.5, mesEntrada: 4, pesoEntrada: 180, pesoVenta: 380, maxMeses: 14, suplModo: "invierno", suplKg: 3 }
+  };
+  var CAMPOS = ["carga", "mesEntrada", "pesoEntrada", "pesoVenta", "maxMeses", "suplModo", "suplKg"];
+  var CASO = ["pastura", "pctP", "pctV", "nivel", "cP", "cV", "comerc", "sanidad", "mort"];
+
+  $("cP").value = R.alfalfa.costo; $("cV").value = R.verdeo.costo;
+  $("comerc").value = D.comercializacion.valor; $("sanidad").value = D.sanidad.valor; $("mort").value = D.mortandad.valor;
+  var guardado = SIM.leer("simagro.recria.estado");
+  ponerRuta(guardado && guardado.ruta || PRE.media);
+  if (guardado && guardado.caso) CASO.forEach(function (k) { if (guardado.caso[k] != null) $(k).value = guardado.caso[k]; });
+  $("pastura").addEventListener("change", function () { $("cP").value = R[this.value].costo; });
+
+  function ponerRuta(r) { CAMPOS.forEach(function (k) { $(k).value = r[k]; }); }
+  function leerRuta() { var r = {}; CAMPOS.forEach(function (k) { r[k] = k === "suplModo" ? $(k).value : parseFloat($(k).value); }); return r; }
+  function v(id) { return parseFloat($(id).value) || 0; }
+  function fracs() { var p = v("pctP") / 100, ve = Math.min(v("pctV") / 100, 1 - p); return { p: p, v: ve, n: Math.max(0, 1 - p - ve) }; }
+
+  function params(r, carga) {
+    var f = fracs(), pas = R[$("pastura").value];
+    return {
+      carga: carga || r.carga, nivel: v("nivel") / 100,
+      mezcla: [{ curva: pas.curva, em: pas.em, frac: f.p }, { curva: R.verdeo.curva, em: R.verdeo.em, frac: f.v }, { curva: R.natural.curva, em: R.natural.em, frac: f.n }],
+      pesoEntrada: r.pesoEntrada, pesoVenta: r.pesoVenta, maxMeses: r.maxMeses, supl: { modo: r.suplModo, kg: r.suplKg },
+      aprov: D.aprovechamiento.valor, perdida: D.perdida.valor, stockInicial: D.stockInicial.valor, stockMax: D.stockMax.valor,
+      emMaiz: D.emMaiz.valor, sustitucion: D.sustitucion.valor
+    };
+  }
+  function eco() {
+    var d = SIM.precio("dolar_mayorista").valor, f = fracs();
+    return {
+      ternero: SIM.precio("ternero_rosgan").valor / d, novillito: SIM.precio("novillito_canuelas").valor / d,
+      novillitoPesado: SIM.precio("novillito_pesado_canuelas").valor / d, novillo: SIM.precio("novillo_inmag").valor / d,
+      maiz: SIM.precio("maiz_pizarra_rosario").valor / d, comercPct: v("comerc"), sanidad: v("sanidad"), mortandadPct: v("mort"),
+      costoForrajeHa: f.p * v("cP") + f.v * v("cV")
+    };
+  }
+  function correr(r, carga) {
+    var p = params(r, carga), e = eco(), filas = [];
+    anios.forEach(function (y) {
+      var res = M.simular(F, M.kDe(y, r.mesEntrada), p);
+      if (res) filas.push({ anio: y, res: res, eco: M.economia(res, p, e) });
+    });
+    var m = filas.map(function (f) { return f.eco.margenAnio; });
+    return {
+      filas: filas, p: p, margenMed: SIM.cuantil(m, .5), margenMin: Math.min.apply(null, m),
+      perdida: m.filter(function (x) { return x < 0; }).length / (m.length || 1),
+      kgMed: SIM.cuantil(filas.map(function (f) { return f.res.kgHaAnio; }), .5),
+      adgMed: SIM.cuantil(filas.map(function (f) { return f.res.adg; }), .5),
+      durMed: SIM.cuantil(filas.map(function (f) { return f.res.duracion; }), .5),
+      defMed: SIM.cuantil(filas.map(function (f) { return f.res.mesesDeficit; }), .5),
+      noLlega: filas.filter(function (f) { return !f.res.llego; }).length / (filas.length || 1),
+      capital: filas.length ? filas[0].eco.capitalHa : 0
+    };
+  }
+  function usd(n) { return (n < 0 ? "−" : "") + "USD " + SIM.num(Math.abs(n)); }
+  function clasificar(mesEntrada) {
+    var tot = {}, vals = [];
+    anios.forEach(function (y) { var k = M.kDe(y, mesEntrada), t = 0; for (var i = 0; i < 12; i++) t += F.lluvia[k + i] || 0; tot[y] = t; vals.push(t); });
+    var t1 = SIM.cuantil(vals, 1 / 3), t2 = SIM.cuantil(vals, 2 / 3);
+    clases = {};
+    anios.forEach(function (y) { clases[y] = { lluvia: Math.round(tot[y]), tipo: tot[y] < t1 ? "seca" : tot[y] >= t2 ? "húmeda" : "normal" }; });
+  }
+  function tipoTxt(t) { return t === "seca" ? "seco" : t === "húmeda" ? "húmedo" : "normal"; }
+
+  function recalcular() {
+    var r = leerRuta(), f = fracs(), pas = R[$("pastura").value];
+    ["carga", "pesoEntrada", "pesoVenta", "maxMeses", "suplKg"].forEach(function (k) { $(k + "-v").textContent = SIM.num(r[k], k === "carga" || k === "suplKg" ? 1 : 0); });
+    ["pctP", "nivel"].forEach(function (k) { $(k + "-v").textContent = $(k).value; });
+    $("pctV-v").textContent = Math.round(f.v * 100);
+    $("pct-nota").textContent = "El resto, " + Math.round(f.n * 100) + " %, es campo natural.";
+    function anual(c) { return c.reduce(function (s, x, i) { return s + x * [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][i]; }, 0); }
+    var prod = (f.p * anual(pas.curva) + f.v * anual(R.verdeo.curva) + f.n * anual(R.natural.curva)) * v("nivel") / 100;
+    $("nivel-nota").textContent = "En un año normal el campo produce unos " + SIM.num(Math.round(prod / 100) * 100) + " kg MS/ha.";
+    $("bloque-supl").style.display = r.suplModo === "nunca" ? "none" : "";
+    var e = eco();
+    $("venta-nota").textContent = "Categoría de venta: " + (r.pesoVenta <= 390 ? "novillito liviano" : r.pesoVenta <= 430 ? "novillito pesado" : "novillo") + ".";
+    $("precio-derivado").innerHTML = "En dólares de hoy: ternero <strong>USD " + SIM.num(e.ternero, 2) + "/kg</strong>, novillito <strong>USD " + SIM.num(e.novillito, 2) + "/kg</strong>, relación compra/venta " + SIM.num(e.ternero / e.novillito, 2) + ". Cambiá cualquier valor por el tuyo.";
+    var caso = {}; CASO.forEach(function (k) { caso[k] = $(k).value; });
+    SIM.guardar("simagro.recria.estado", { ruta: r, caso: caso });
+    if (!serie) return;
+
+    anios = []; for (var y = 1995; M.kDe(y, r.mesEntrada) + r.maxMeses < F.meses; y++) anios.push(y);
+    clasificar(r.mesEntrada);
+    corrida = correr(r);
+    var c = corrida;
+    $("n-camp").textContent = c.filas.length;
+    $("kpis").innerHTML =
+      '<div class="kpi ' + (c.margenMed >= 0 ? "bien" : "mal") + '"><b>' + usd(c.margenMed) + "</b><span>margen bruto mediano por ha y por año</span></div>" +
+      '<div class="kpi ' + (c.margenMin >= 0 ? "" : "mal") + '"><b>' + usd(c.margenMin) + "</b><span>peor año</span></div>" +
+      '<div class="kpi ' + (c.perdida > 0.2 ? "mal" : "") + '"><b>' + SIM.num(c.perdida * 100) + " %</b><span>de los años con margen negativo</span></div>" +
+      '<div class="kpi"><b>' + SIM.num(c.kgMed) + " kg</b><span>de carne por ha y por año (mediana)</span></div>" +
+      '<div class="kpi"><b>' + SIM.num(c.adgMed * 1000) + " g/día</b><span>ganancia de peso mediana, " + SIM.num(c.durMed) + " meses de ciclo</span></div>" +
+      '<div class="kpi ' + (c.defMed >= 3 ? "mal" : "") + '"><b>' + SIM.num(c.defMed) + "</b><span>meses con falta de pasto (mediana)</span></div>" +
+      '<div class="kpi ' + (c.noLlega > 0.2 ? "mal" : "") + '"><b>' + SIM.num(c.noLlega * 100) + " %</b><span>de los años no llega al peso buscado</span></div>" +
+      '<div class="kpi"><b>' + usd(c.capital) + "</b><span>capital en hacienda por ha a la compra</span></div>";
+
+    var ys = c.filas.map(function (x) { return x.anio; });
+    if (campSel == null || ys.indexOf(campSel) < 0) campSel = c.filas.slice().sort(function (a, b) { return a.eco.margenAnio - b.eco.margenAnio; })[0].anio;
+    $("camp-sel").innerHTML = ys.map(function (y) { return '<option value="' + y + '">Entrada ' + MESES[r.mesEntrada - 1] + " " + y + " · " + tipoTxt(clases[y].tipo) + " (" + clases[y].lluvia + " mm)</option>"; }).join("");
+    $("camp-sel").value = campSel;
+    pintarAnios(); pintarCargas(r); pintarCiclo(r); pintarComparar();
+  }
+
+  function pintarAnios() {
+    var u = { margen: "USD/ha/año", kg: "kg/ha/año", peso: "kg" }[ver], ys = corrida.filas.map(function (x) { return x.anio; });
+    SIM.barras($("graf-anios"), corrida.filas.map(function (f) {
+      var val = ver === "margen" ? f.eco.margenAnio : ver === "kg" ? f.res.kgHaAnio : f.res.pesoFinal;
+      return { etq: String(f.anio).slice(2), valor: val, color: SIM.colorTipo(clases[f.anio].tipo),
+        titulo: "Entrada " + f.anio + " (" + tipoTxt(clases[f.anio].tipo) + ", " + clases[f.anio].lluvia + " mm): venta a " + SIM.num(f.res.pesoFinal) + " kg en " + f.res.duracion + " meses, margen USD " + SIM.num(f.eco.margenAnio) + "/ha/año" };
+    }), { unidad: u, sel: ys.indexOf(campSel), titulo: "Resultado por año de entrada", alClic: function (i) { campSel = ys[i]; $("camp-sel").value = campSel; pintarAnios(); pintarCiclo(leerRuta()); } });
+  }
+
+  function pintarCargas(r) {
+    var cargas = [], items = [], mejor = null;
+    for (var c = 0.5; c <= 7.01; c += 0.5) cargas.push(Math.round(c * 10) / 10);
+    cargas.forEach(function (c) {
+      var x = correr(r, c);
+      if (!mejor || x.margenMed > mejor.m) mejor = { c: c, m: x.margenMed, min: x.margenMin, perd: x.perdida };
+      items.push({ etq: SIM.num(c, 1), valor: x.margenMed, color: "var(--verde)", titulo: c + " cab/ha: margen mediano USD " + SIM.num(x.margenMed) + ", peor año USD " + SIM.num(x.margenMin) });
+      items.push({ etq: "", valor: x.margenMin, color: "var(--rojo)", titulo: c + " cab/ha: peor año USD " + SIM.num(x.margenMin) });
+    });
+    var sel = cargas.reduce(function (b, c, i) { return Math.abs(c - r.carga) < Math.abs(cargas[b] - r.carga) ? i : b; }, 0) * 2;
+    SIM.barras($("graf-carga"), items, { unidad: "USD/ha/año, por carga en cab/ha", sel: sel, alto: 220, titulo: "Margen según la carga" });
+    $("carga-nota").innerHTML = "El mejor margen mediano de esta ruta está cerca de <strong>" + SIM.num(mejor.c, 1) + " cab/ha</strong> (USD " + SIM.num(mejor.m) + "/ha/año), con un peor año de USD " + SIM.num(mejor.min) + " y " + SIM.num(mejor.perd * 100) + " % de años en rojo. Más carga rinde más en los años buenos y cuesta más en los malos.";
+  }
+
+  function pintarCiclo(r) {
+    var f = corrida.filas.filter(function (x) { return x.anio === campSel; })[0]; if (!f) return;
+    var ms = f.res.meses;
+    $("camp-etq").textContent = MESES[r.mesEntrada - 1] + " de " + campSel + " (año " + tipoTxt(clases[campSel].tipo) + ")";
+    SIM.series($("graf-camp"), [
+      { datos: ms.map(function (m) { return m.oferta; }), color: "var(--verde)", tipo: "area" },
+      { datos: ms.map(function (m) { return m.demanda; }), color: "var(--rojo)", grosor: 2 },
+      { datos: ms.map(function (m) { return m.pv; }), color: "var(--ocre)", eje: "der", grosor: 2.4 }
+    ], { etqX: ms.map(function (m, i) { return { i: i, t: MESES[m.mes] }; }), unidadIzq: "kg MS/ha", unidadDer: "kg vivo", maxDer: Math.max(480, r.pesoVenta + 40), titulo: "Oferta y demanda de pasto y peso vivo" });
+    $("kpis-camp").innerHTML =
+      '<div class="kpi"><b>' + SIM.num(f.res.pesoFinal) + " kg</b><span>peso de venta a los " + f.res.duracion + " meses" + (f.res.llego ? "" : " (no llegó al buscado)") + "</span></div>" +
+      '<div class="kpi ' + (f.eco.margenAnio >= 0 ? "bien" : "mal") + '"><b>' + usd(f.eco.margenAnio) + "</b><span>margen por ha y por año</span></div>" +
+      '<div class="kpi"><b>' + usd(f.eco.porCab) + "</b><span>resultado por cabeza</span></div>" +
+      '<div class="kpi"><b>' + SIM.num(f.res.suplCab) + " kg</b><span>de grano por cabeza (USD " + SIM.num(f.eco.supl) + ")</span></div>" +
+      '<div class="kpi ' + (f.res.mesesDeficit >= 3 ? "mal" : "") + '"><b>' + f.res.mesesDeficit + "</b><span>meses con falta de pasto</span></div>";
+    var h = "<table><tr><th>Mes</th><th>Clima</th><th>Pasto disponible</th><th>Pasto pedido</th><th>Grano kg/día</th><th>Ganancia g/día</th><th>Peso kg</th></tr>";
+    ms.forEach(function (m) {
+      h += "<tr><td>" + MESES[m.mes] + " " + m.anio + "</td><td>" + (m.clima < 0.7 ? '<span class="etq seca">seco</span>' : m.clima > 1.15 ? '<span class="etq húmeda">húmedo</span>' : "normal") + "</td><td>" + SIM.num(m.oferta) + "</td><td>" + (m.falta ? '<span class="alerta">' + SIM.num(m.demanda) + "</span>" : SIM.num(m.demanda)) + "</td><td>" + SIM.num(m.sup, 1) + "</td><td>" + SIM.num(m.adg * 1000) + "</td><td>" + SIM.num(m.pv) + "</td></tr>";
+    });
+    $("tabla-camp").innerHTML = h + "</table>";
+  }
+
+  function pintarComparar() {
+    var l = rutas.lista();
+    if (!l.length) { $("comparar").innerHTML = '<div class="vacio">Guardá hasta 3 rutas en el paso 2 para verlas lado a lado.</div>'; return; }
+    var h = "<table><tr><th>Ruta</th><th>Margen mediano</th><th>Peor año</th><th>Años en rojo</th><th>kg carne/ha/año</th><th>g/día</th><th>Meses sin pasto</th><th>Capital/ha</th><th></th></tr>";
+    l.forEach(function (x, i) {
+      var c = correr(x.ruta);
+      h += "<tr><td><strong>" + SIM.esc(x.nombre) + "</strong><br><small>" + x.ruta.carga + " cab/ha, " + x.ruta.pesoEntrada + " a " + x.ruta.pesoVenta + " kg, grano: " + x.ruta.suplModo + "</small></td><td>" + usd(c.margenMed) + "</td><td>" + usd(c.margenMin) + "</td><td>" + SIM.num(c.perdida * 100) + " %</td><td>" + SIM.num(c.kgMed) + "</td><td>" + SIM.num(c.adgMed * 1000) + "</td><td>" + SIM.num(c.defMed) + "</td><td>" + usd(c.capital) +
+        '</td><td><button type="button" class="btn sec mini" data-cargar="' + i + '">cargar</button> <button type="button" class="btn sec mini" data-borrar="' + i + '">quitar</button></td></tr>';
+    });
+    $("comparar").innerHTML = h + "</table>";
+    $("comparar").querySelectorAll("[data-cargar]").forEach(function (b) { b.onclick = function () { ponerRuta(l[+b.dataset.cargar].ruta); recalcular(); }; });
+    $("comparar").querySelectorAll("[data-borrar]").forEach(function (b) { b.onclick = function () { rutas.quitar(+b.dataset.borrar); pintarComparar(); }; });
+  }
+
+  document.querySelectorAll("section.panel input, section.panel select").forEach(function (e) {
+    if (e.closest("#clima") || e.closest("#precios") || e.id === "camp-sel" || e.id === "ruta-nombre") return;
+    e.addEventListener("input", recalcular);
+  });
+  document.querySelectorAll("[data-pre]").forEach(function (b) { b.onclick = function () { ponerRuta(PRE[b.dataset.pre]); recalcular(); }; });
+  document.querySelectorAll("[data-ver]").forEach(function (b) { b.onclick = function () { ver = b.dataset.ver; document.querySelectorAll("[data-ver]").forEach(function (x) { x.classList.toggle("activo", x === b); }); pintarAnios(); }; });
+  $("guardar").onclick = function () {
+    var r = leerRuta(), nom = $("ruta-nombre").value.trim() || r.carga + " cab/ha, grano " + r.suplModo;
+    $("guardar-nota").textContent = rutas.agregar({ nombre: nom, ruta: r }) ? "Guardada." : "Ya hay 3 rutas: quitá una en el paso 5.";
+    $("ruta-nombre").value = ""; if (serie) pintarComparar();
+  };
+  $("camp-sel").onchange = function () { campSel = +this.value; pintarAnios(); pintarCiclo(leerRuta()); };
+
+  var repintarPrecios = SIM.panelPrecios($("precios"), ["ternero_rosgan", "novillito_canuelas", "novillito_pesado_canuelas", "novillo_inmag", "maiz_pizarra_rosario", "dolar_mayorista"], recalcular);
+  SIM.actualizarDolar().then(function (ok) { if (ok) { repintarPrecios(); recalcular(); } });
+  SIM.listaFuentes($("fuentes"), D);
+
+  CLIMA.montar($("clima"), function (s) {
+    serie = s; F = M.factores(s.lluvia, s.eto, 150); campSel = null;
+    $("sin-clima").hidden = true; $("resultados").hidden = false;
+    recalcular();
+  });
+  recalcular();
+})();
+</script>
+</body>
+</html>

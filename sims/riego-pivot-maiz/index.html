@@ -1,0 +1,321 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Riego por pivot en maíz · Simulador Agro</title>
+<link rel="stylesheet" href="../../comun/sim.css">
+</head>
+<body>
+<div class="cont">
+  <header class="tapa">
+    <a class="volver" href="../../index.html">← Todas las simulaciones</a>
+    <h1>Riego por pivot en maíz</h1>
+    <p class="bajada">¿Se paga un pivot en tu campo? Corré tu planteo sobre cada campaña real de tu localidad desde 1994 y compará secano contra riego antes de poner un dólar.</p>
+  </header>
+
+  <section class="panel">
+    <h2><span class="paso">1</span>Tu caso</h2>
+    <div id="clima"></div>
+    <div class="grilla" style="margin-top:14px">
+      <label class="campo">Textura del suelo<select id="suelo"></select><small id="suelo-nota"></small></label>
+      <label class="campo">Profundidad explorable por raíces (m)<input type="number" id="prof" min="0.5" max="2" step="0.1" value="1.5"><small>Limitala si hay tosca o napa salina.</small></label>
+      <label class="campo">Superficie a regar (ha)<input type="number" id="ha" min="10" max="500" step="5" value="80"><small>Un círculo típico cubre 60 a 100 ha.</small></label>
+    </div>
+    <h3>Precios vigentes</h3>
+    <p class="nota" id="precio-derivado"></p>
+    <div id="precios"></div>
+    <details style="margin-top:10px"><summary class="nota" style="cursor:pointer">Costos del planteo (editables)</summary>
+      <div class="grilla" style="margin-top:10px">
+        <label class="campo">Costos directos sin N, cosecha ni comercialización (USD/ha)<input type="number" id="costoBase" step="10"></label>
+        <label class="campo">Cosecha + flete + comercialización (% del ingreso)<input type="number" id="comerc" step="1"></label>
+        <label class="campo">Rinde alcanzable sin límite de agua, siembra temprana (t/ha)<input type="number" id="ypotT" step="0.5"></label>
+        <label class="campo">Rinde alcanzable sin límite de agua, siembra tardía (t/ha)<input type="number" id="ypotL" step="0.5"></label>
+        <label class="campo">N de nitratos en suelo a la siembra (kg/ha)<input type="number" id="nSuelo" step="5"></label>
+        <label class="campo">Vida útil del equipo (años)<input type="number" id="vida" step="1"></label>
+        <label class="campo">Tasa de descuento (% anual en USD)<input type="number" id="tasa" step="0.5"></label>
+      </div>
+    </details>
+  </section>
+
+  <section class="panel">
+    <h2><span class="paso">2</span>Tu ruta</h2>
+    <div class="fila" style="margin-bottom:12px">
+      <span class="nota">Empezar desde:</span>
+      <button type="button" class="chip" data-pre="secano">Secano típico</button>
+      <button type="button" class="chip" data-pre="pleno">Riego pleno</button>
+      <button type="button" class="chip" data-pre="justo">Riego ajustado</button>
+    </div>
+    <div class="grilla">
+      <label class="campo">Sistema<select id="riegoOn"><option value="0">Secano</option><option value="1">Con pivot</option></select></label>
+      <label class="campo">Fecha de siembra<select id="siembra"><option value="temprana">Temprana (1 de octubre)</option><option value="tardia">Tardía (1 de diciembre)</option></select></label>
+      <label class="campo">Nitrógeno aplicado: <span id="nKg-v"></span> kg N/ha<input type="range" id="nKg" min="0" max="300" step="10"><small id="n-nota"></small></label>
+    </div>
+    <div class="grilla" id="bloque-riego" style="margin-top:14px">
+      <label class="campo">Lámina por pasada: <span id="lamina-v"></span> mm<input type="range" id="lamina" min="8" max="30" step="1"></label>
+      <label class="campo">Regar cuando se agotó el <span id="umbral-v"></span> % del agua útil<input type="range" id="umbral" min="20" max="70" step="5"><small>El maíz empieza a sufrir al 55 %.</small></label>
+      <label class="campo">Capacidad del equipo: <span id="capacidad-v"></span> mm/día<input type="range" id="capacidad" min="3" max="10" step="0.5"><small>Depende del caudal de la perforación.</small></label>
+      <label class="campo">Tope de agua por campaña: <span id="tope-v"></span> mm<input type="range" id="tope" min="50" max="600" step="10"><small>Por permiso de uso o costo.</small></label>
+      <label class="campo">Energía<select id="energia"><option value="red">Electricidad de red</option><option value="solar">Solar</option><option value="gasoil">Gasoil</option></select></label>
+      <label class="campo">N del secano contra el que se compara (kg N/ha)<input type="number" id="nSecano" min="0" max="300" step="10" value="90"></label>
+    </div>
+    <div class="fila" style="margin-top:16px">
+      <input type="text" id="ruta-nombre" placeholder="Nombre de la ruta" style="max-width:260px" aria-label="Nombre de la ruta">
+      <button type="button" class="btn" id="guardar">Guardar ruta para comparar</button>
+      <span class="nota" id="guardar-nota"></span>
+    </div>
+  </section>
+
+  <div id="sin-clima" class="vacio" style="margin-top:18px">Cargá tu localidad en el paso 1 para ver los resultados.</div>
+
+  <div id="resultados" hidden>
+    <section class="panel">
+      <h2><span class="paso">3</span>Cómo le va a esta ruta en <span id="n-camp"></span> campañas reales</h2>
+      <div class="kpis" id="kpis"></div>
+      <div class="leyenda"><span><i style="background:var(--seca)"></i>campaña seca</span><span><i style="background:var(--normal)"></i>normal</span><span><i style="background:var(--humeda)"></i>húmeda</span><span>(según lluvia de octubre a marzo). Tocá una barra para ver esa campaña.</span></div>
+      <div class="fila"><button type="button" class="chip activo" data-ver="margen">Margen bruto</button><button type="button" class="chip" data-ver="rinde">Rinde</button><button type="button" class="chip" data-ver="regado">Agua regada</button></div>
+      <div id="graf-anios"></div>
+      <div id="inversion"></div>
+    </section>
+
+    <section class="panel">
+      <h2><span class="paso">4</span>La campaña <span id="camp-etq"></span>, día por día</h2>
+      <div class="fila">
+        <select id="camp-sel" style="max-width:220px" aria-label="Campaña"></select>
+        <button type="button" class="btn sec" id="play">▶ Reproducir</button>
+        <input type="range" id="dia" min="1" value="1" style="flex:1;min-width:140px" aria-label="Día de la campaña">
+      </div>
+      <div class="leyenda" style="margin-top:10px"><span><i style="background:var(--agua)"></i>agua útil en la zona de raíces (mm)</span><span><i style="background:var(--tinta2)"></i>capacidad máxima</span><span><i style="background:var(--rojo)"></i>por debajo de esta línea el cultivo sufre</span><span><i style="background:var(--humeda)"></i>lluvia (mm, eje derecho)</span><span><i style="background:var(--verde)"></i>riego</span></div>
+      <div id="graf-camp"></div>
+      <div class="kpis" id="kpis-camp"></div>
+    </section>
+
+    <section class="panel">
+      <h2><span class="paso">5</span>Comparar rutas</h2>
+      <p class="nota">Todas se recalculan con tu caso y los precios de hoy.</p>
+      <div class="tabla-scroll" id="comparar"></div>
+    </section>
+  </div>
+
+  <section class="panel">
+    <details class="fuentes"><summary>Fuentes, supuestos y límites del modelo</summary>
+      <p class="nota"><strong>Qué hace:</strong> balance de agua del suelo día por día (método FAO 56) con la lluvia y la evapotranspiración de tu localidad, y caída del rinde según cuánta agua le faltó al cultivo en cada etapa (FAO 33). El rinde final es el menor entre el que permite el agua y el que permite el nitrógeno.</p>
+      <p class="nota"><strong>Validación:</strong> con el clima de Manfredi (Córdoba) el modelo da en promedio 7,7 t/ha en secano y 15,0 t/ha con riego; INTA Manfredi publicó 7,74 y 14,89 t/ha.</p>
+      <p class="nota"><strong>Qué no contempla:</strong> golpes de calor, heladas, granizo, plagas y enfermedades, napa freática, calidad del agua de riego, costo de la perforación si no existe, cambios en el esquema de rotación (el riego suele habilitar doble cultivo) ni impuestos y financiación. El clima es de reanálisis (grilla de unos 10 a 25 km), no de una estación del campo. En años muy secos el modelo puede castigar el rinde de secano más que la realidad.</p>
+      <div id="fuentes"></div>
+    </details>
+  </section>
+  <p class="aviso-pie">Herramienta de exploración: no reemplaza a un asesor ni a un proyecto de inversión formal.</p>
+</div>
+
+<script src="../../comun/precios.js"></script>
+<script src="../../comun/sim.js"></script>
+<script src="../../comun/clima.js"></script>
+<script src="datos.js"></script>
+<script src="modelo.js"></script>
+<script>
+(function () {
+  var D = DATOS_RIEGO.params, $ = function (id) { return document.getElementById(id); };
+  var serie = null, clases = null, anios = [], corrida = null, ver = "margen", campSel = null, timer = null;
+  var rutas = SIM.rutas("riego-pivot-maiz");
+  var PRE = {
+    secano: { riegoOn: 0, siembra: "tardia", nKg: 90, lamina: 20, umbral: 40, capacidad: 6, tope: 400, energia: "red" },
+    pleno: { riegoOn: 1, siembra: "temprana", nKg: 200, lamina: 20, umbral: 35, capacidad: 7, tope: 500, energia: "red" },
+    justo: { riegoOn: 1, siembra: "temprana", nKg: 160, lamina: 15, umbral: 50, capacidad: 5, tope: 200, energia: "red" }
+  };
+  var CAMPOS = ["riegoOn", "siembra", "nKg", "lamina", "umbral", "capacidad", "tope", "energia"];
+
+  // ----- armado inicial -----
+  Object.keys(D.suelos.valor).forEach(function (t) { var o = document.createElement("option"); o.textContent = t; $("suelo").appendChild(o); });
+  $("suelo").value = "Franco limoso";
+  $("costoBase").value = D.costoBase.valor; $("comerc").value = D.cosechaComerc.valor;
+  $("ypotT").value = D.ypot.valor.temprana; $("ypotL").value = D.ypot.valor.tardia;
+  $("nSuelo").value = D.nSuelo.valor; $("vida").value = D.vidaUtil.valor; $("tasa").value = D.tasa.valor;
+  var guardado = SIM.leer("simagro.riego.estado");
+  ponerRuta(guardado && guardado.ruta || PRE.pleno);
+  if (guardado && guardado.caso) ["suelo", "prof", "ha", "costoBase", "comerc", "ypotT", "ypotL", "nSuelo", "vida", "tasa", "nSecano"].forEach(function (k) { if (guardado.caso[k] != null) $(k).value = guardado.caso[k]; });
+
+  function ponerRuta(r) { CAMPOS.forEach(function (k) { $(k).value = r[k]; }); }
+  function leerRuta() { var r = {}; CAMPOS.forEach(function (k) { r[k] = k === "siembra" || k === "energia" ? $(k).value : parseFloat($(k).value); }); return r; }
+  function v(id) { return parseFloat($(id).value) || 0; }
+
+  function params(r) {
+    return {
+      awc: D.suelos.valor[$("suelo").value], prof: Math.max(0.5, v("prof")),
+      siembra: D.siembra.valor[r.siembra], ypot: r.siembra === "temprana" ? v("ypotT") : v("ypotL"),
+      nKg: r.nKg, nSuelo: v("nSuelo"), nPorTon: D.nPorTon.valor,
+      riego: { on: !!r.riegoOn, lamina: r.lamina, umbral: r.umbral / 100, capacidad: r.capacidad, eficiencia: D.eficiencia.valor, tope: r.tope },
+      kc: D.kc.valor, etapas: D.etapas.valor, pAgot: D.p.valor, ky: D.ky.valor, escurr: D.escurrimiento.valor, perfilInicial: D.perfilInicial.valor
+    };
+  }
+  function precioMaiz() { return SIM.precio("maiz_pizarra_rosario").valor / SIM.precio("dolar_mayorista").valor; }
+  function eco(r, factorPrecio) {
+    return {
+      precioMaiz: precioMaiz() * (factorPrecio || 1), urea: SIM.precio("urea").valor, costoBase: v("costoBase"), cosechaComercPct: v("comerc"),
+      costoMm: r.riegoOn ? SIM.precio("riego_mm_" + r.energia).valor : 0
+    };
+  }
+  /* Corre una ruta sobre todas las campañas */
+  function correr(r, factorPrecio) {
+    var p = params(r), e = eco(r, factorPrecio);
+    var filas = anios.map(function (y) {
+      var res = MODELO_RIEGO.simular(CLIMA.campania(serie, y), p);
+      return { anio: y, res: res, eco: MODELO_RIEGO.economia(res, p, e) };
+    });
+    var m = filas.map(function (f) { return f.eco.margen; }), ri = filas.map(function (f) { return f.res.rinde; });
+    return {
+      filas: filas, p: p,
+      margenMed: SIM.cuantil(m, .5), margenProm: SIM.media(m), margenMin: Math.min.apply(null, m), margenMax: Math.max.apply(null, m),
+      rindeMed: SIM.cuantil(ri, .5), rindeMin: Math.min.apply(null, ri), rindeProm: SIM.media(ri),
+      perdida: m.filter(function (x) { return x < 0; }).length / m.length,
+      regadoProm: SIM.media(filas.map(function (f) { return f.res.regado; }))
+    };
+  }
+  function secanoDe(r) { var s = Object.assign({}, r); s.riegoOn = 0; s.nKg = v("nSecano"); return s; }
+  function inversion(c, cSec) {
+    var inv = SIM.precio("riego_inversion_pivot").valor, delta = c.margenProm - cSec.margenProm, vida = v("vida"), tasa = v("tasa") / 100;
+    return { inv: inv, delta: delta, repago: delta > 0 ? inv / delta : null, van: SIM.van(inv, delta, vida, tasa), tir: SIM.tir(inv, delta, vida) };
+  }
+  function usd(n) { return (n < 0 ? "−" : "") + "USD " + SIM.num(Math.abs(n)); }
+
+  // ----- pintado -----
+  function recalcular() {
+    var r = leerRuta();
+    ["nKg", "lamina", "umbral", "capacidad", "tope"].forEach(function (k) { $(k + "-v").textContent = SIM.num(r[k], k === "capacidad" ? 1 : 0); });
+    $("bloque-riego").style.display = r.riegoOn ? "" : "none";
+    $("suelo-nota").textContent = "Guarda " + D.suelos.valor[$("suelo").value] + " mm de agua útil por metro.";
+    var techoN = (v("nSuelo") + r.nKg) / D.nPorTon.valor;
+    $("n-nota").textContent = "Con " + SIM.num(v("nSuelo") + r.nKg) + " kg de N disponible el techo es " + SIM.num(techoN, 1) + " t/ha. Costo: USD " + SIM.num(r.nKg / 0.46 * SIM.precio("urea").valor / 1000) + "/ha.";
+    $("precio-derivado").innerHTML = "Maíz a <strong>USD " + SIM.num(precioMaiz(), 1) + "/t</strong> (pizarra en pesos dividida por el dólar mayorista). Cambiá cualquier valor por el tuyo: todo se recalcula.";
+    var caso = {}; ["suelo", "prof", "ha", "costoBase", "comerc", "ypotT", "ypotL", "nSuelo", "vida", "tasa", "nSecano"].forEach(function (k) { caso[k] = $(k).value; });
+    SIM.guardar("simagro.riego.estado", { ruta: r, caso: caso });
+    if (!serie) return;
+
+    corrida = correr(r);
+    var c = corrida;
+    var k = '<div class="kpi"><b>' + SIM.num(c.rindeMed, 1) + ' t/ha</b><span>rinde mediano (peor año: ' + SIM.num(c.rindeMin, 1) + ")</span></div>" +
+      '<div class="kpi ' + (c.margenMed >= 0 ? "bien" : "mal") + '"><b>' + usd(c.margenMed) + "</b><span>margen bruto mediano por ha</span></div>" +
+      '<div class="kpi ' + (c.margenMin >= 0 ? "" : "mal") + '"><b>' + usd(c.margenMin) + "</b><span>peor campaña</span></div>" +
+      '<div class="kpi ' + (c.perdida > 0.2 ? "mal" : "") + '"><b>' + SIM.num(c.perdida * 100) + " %</b><span>de las campañas con margen negativo</span></div>";
+    if (r.riegoOn) k += '<div class="kpi"><b>' + SIM.num(c.regadoProm) + " mm</b><span>regados por campaña en promedio</span></div>";
+    $("kpis").innerHTML = k;
+    $("n-camp").textContent = anios.length;
+
+    if (campSel == null || anios.indexOf(campSel) < 0) campSel = c.filas.slice().sort(function (a, b) { return a.eco.margen - b.eco.margen; })[0].anio;
+    pintarAnios(); pintarInversion(r, c); pintarCampania(true); pintarComparar();
+  }
+
+  function pintarAnios() {
+    var u = { margen: "USD/ha", rinde: "t/ha", regado: "mm" }[ver];
+    SIM.barras($("graf-anios"), corrida.filas.map(function (f) {
+      var val = ver === "margen" ? f.eco.margen : ver === "rinde" ? f.res.rinde : f.res.regado;
+      return { etq: String(f.anio).slice(2), valor: val, color: SIM.colorTipo(clases[f.anio].tipo),
+        titulo: "Campaña " + f.anio + "/" + String(f.anio + 1).slice(2) + " (" + clases[f.anio].tipo + ", " + clases[f.anio].lluvia + " mm oct-mar): " + SIM.num(f.res.rinde, 1) + " t/ha, margen USD " + SIM.num(f.eco.margen) + ", regado " + f.res.regado + " mm" };
+    }), { unidad: u, sel: anios.indexOf(campSel), titulo: "Resultado por campaña", alClic: function (i) { campSel = anios[i]; $("camp-sel").value = campSel; pintarAnios(); pintarCampania(true); } });
+  }
+
+  function pintarInversion(r, c) {
+    if (!r.riegoOn) { $("inversion").innerHTML = '<p class="nota">Ruta en secano: no hay inversión que repagar. Pasá el sistema a "Con pivot" para evaluar el equipo.</p>'; return; }
+    var sec = secanoDe(r), cs = correr(sec), iv = inversion(c, cs), ha = v("ha");
+    var h = "<h3>¿Se paga el equipo?</h3><p class=\"nota\">Contra el mismo planteo en secano con " + sec.nKg + " kg N/ha (margen promedio USD " + SIM.num(cs.margenProm) + "/ha, rinde promedio " + SIM.num(cs.rindeProm, 1) + " t/ha).</p>" +
+      '<div class="kpis"><div class="kpi ' + (iv.delta > 0 ? "bien" : "mal") + '"><b>' + usd(iv.delta) + "</b><span>margen extra por ha y por año, promedio</span></div>" +
+      '<div class="kpi"><b>' + usd(iv.inv * ha) + "</b><span>inversión para " + ha + " ha (USD " + SIM.num(iv.inv) + "/ha)</span></div>" +
+      '<div class="kpi ' + (iv.repago && iv.repago < v("vida") ? "bien" : "mal") + '"><b>' + (iv.repago ? SIM.num(iv.repago, 1) + " años" : "No repaga") + "</b><span>repago simple</span></div>" +
+      '<div class="kpi ' + (iv.van > 0 ? "bien" : "mal") + '"><b>' + usd(iv.van) + "</b><span>VAN por ha a " + v("vida") + " años, tasa " + v("tasa") + " %</span></div>" +
+      '<div class="kpi"><b>' + (iv.tir != null ? SIM.num(iv.tir * 100, 1) + " %" : "negativa") + "</b><span>TIR</span></div></div>";
+    // años en que el riego no pagó su costo operativo
+    var peores = c.filas.filter(function (f, i) { return f.eco.margen < cs.filas[i].eco.margen; }).length;
+    h += '<p class="nota">En ' + peores + " de " + anios.length + " campañas regar dejó menos margen que el secano (años llovedores: se paga el agua sin ganar rinde).</p>";
+    h += '<h3>Si cambia el precio del maíz</h3><div class="tabla-scroll"><table><tr><th>Precio del maíz</th><th>Margen extra USD/ha/año</th><th>Repago</th><th>TIR</th></tr>';
+    [0.8, 1, 1.2].forEach(function (f) {
+      var a = correr(r, f), b = correr(sec, f), x = inversion(a, b);
+      h += "<tr><td>USD " + SIM.num(precioMaiz() * f, 0) + "/t" + (f === 1 ? " (hoy)" : f < 1 ? " (−20 %)" : " (+20 %)") + "</td><td>" + SIM.num(x.delta) + "</td><td>" + (x.repago ? SIM.num(x.repago, 1) + " años" : "no repaga") + "</td><td>" + (x.tir != null ? SIM.num(x.tir * 100, 1) + " %" : "negativa") + "</td></tr>";
+    });
+    $("inversion").innerHTML = h + "</table></div>";
+  }
+
+  function pintarCampania(reiniciar) {
+    var f = corrida.filas[anios.indexOf(campSel)], res = f.res, d = res.diario;
+    var ini = Math.max(0, res.siembra - 30), n = res.fin - ini + 1;
+    var sl = $("dia");
+    sl.max = n; if (reiniciar) sl.value = n;
+    var hasta = Math.max(2, +sl.value);
+    function corte(a) { return a.slice(ini, ini + n).map(function (x, i) { return i < hasta ? x : 0; }); }
+    $("camp-etq").textContent = campSel + "/" + String(campSel + 1).slice(2) + " (" + clases[campSel].tipo + ")";
+    var meses = ["jul", "ago", "sep", "oct", "nov", "dic", "ene", "feb", "mar", "abr", "may", "jun"], etq = [], acum = 0;
+    [31, 31, 30, 31, 30, 31, 31, 28, 31, 30, 31, 30].forEach(function (dm, i) { if (acum >= ini && acum <= res.fin) etq.push({ i: acum - ini, t: "1 " + meses[i] }); acum += dm; });
+    var maxLl = Math.max(40, Math.max.apply(null, d.lluvia.slice(ini)));
+    SIM.series($("graf-camp"), [
+      { datos: corte(d.lluvia), color: "var(--humeda)", tipo: "barra", eje: "der" },
+      { datos: corte(d.riego), color: "var(--verde)", tipo: "barra", eje: "der" },
+      { datos: d.agua.slice(ini, ini + hasta).concat(new Array(n - hasta).fill(0)).slice(0, n), color: "var(--agua)", tipo: "area" },
+      { datos: d.capacidad.slice(ini, ini + n), color: "var(--tinta2)", punteada: true, grosor: 1.2 },
+      { datos: d.umbralEstres.slice(ini, ini + n).map(function (x, i) { return ini + i >= res.siembra ? x : 0; }), color: "var(--rojo)", grosor: 1.2 }
+    ], { etqX: etq, unidadIzq: "mm en suelo", unidadDer: "mm/día", maxDer: maxLl * 2.2, titulo: "Agua en el suelo durante la campaña",
+      bandas: [{ desde: res.siembra - ini + res.cortes.veg, hasta: res.siembra - ini + res.cortes.flor, color: "var(--ocre)", t: "floración" }] });
+    var pe = res.porEtapa;
+    function pct(q) { return SIM.num(q * 100) + " %"; }
+    $("kpis-camp").innerHTML =
+      '<div class="kpi"><b>' + SIM.num(res.rinde, 1) + " t/ha</b><span>rinde (lo limitó el " + res.limita + ")</span></div>" +
+      '<div class="kpi ' + (f.eco.margen >= 0 ? "bien" : "mal") + '"><b>' + usd(f.eco.margen) + "</b><span>margen bruto por ha</span></div>" +
+      '<div class="kpi"><b>' + SIM.num(res.lluviaCiclo) + " mm</b><span>lluvia durante el ciclo</span></div>" +
+      '<div class="kpi"><b>' + res.regado + " mm</b><span>regados en " + res.pasadas + " pasadas (USD " + SIM.num(f.eco.riego) + ")</span></div>" +
+      '<div class="kpi ' + (pe.flor < 0.8 ? "mal" : "") + '"><b>' + pct(pe.flor) + "</b><span>del agua que pedía el cultivo en floración</span></div>" +
+      '<div class="kpi"><b>' + res.diasEstres + "</b><span>días con estrés hídrico</span></div>";
+  }
+
+  function pintarComparar() {
+    var l = rutas.lista();
+    if (!l.length) { $("comparar").innerHTML = '<div class="vacio">Guardá hasta 3 rutas en el paso 2 para verlas lado a lado.</div>'; return; }
+    var h = "<table><tr><th>Ruta</th><th>Rinde mediano</th><th>Margen mediano</th><th>Peor campaña</th><th>Años en rojo</th><th>mm regados</th><th>Repago</th><th>TIR</th><th></th></tr>";
+    l.forEach(function (x, i) {
+      var c = correr(x.ruta), iv = x.ruta.riegoOn ? inversion(c, correr(secanoDe(x.ruta))) : null;
+      h += "<tr><td><strong>" + SIM.esc(x.nombre) + "</strong><br><small>" + (x.ruta.riegoOn ? "pivot, " + x.ruta.energia : "secano") + ", " + x.ruta.siembra + ", " + x.ruta.nKg + " N</small></td><td>" +
+        SIM.num(c.rindeMed, 1) + " t</td><td>" + usd(c.margenMed) + "</td><td>" + usd(c.margenMin) + "</td><td>" + SIM.num(c.perdida * 100) + " %</td><td>" + (x.ruta.riegoOn ? SIM.num(c.regadoProm) : "0") + "</td><td>" +
+        (iv ? (iv.repago ? SIM.num(iv.repago, 1) + " años" : "no repaga") : "sin inversión") + "</td><td>" + (iv ? (iv.tir != null ? SIM.num(iv.tir * 100, 1) + " %" : "negativa") : "") +
+        '</td><td><button type="button" class="btn sec mini" data-cargar="' + i + '">cargar</button> <button type="button" class="btn sec mini" data-borrar="' + i + '">quitar</button></td></tr>';
+    });
+    $("comparar").innerHTML = h + "</table>";
+    $("comparar").querySelectorAll("[data-cargar]").forEach(function (b) { b.onclick = function () { ponerRuta(l[+b.dataset.cargar].ruta); recalcular(); }; });
+    $("comparar").querySelectorAll("[data-borrar]").forEach(function (b) { b.onclick = function () { rutas.quitar(+b.dataset.borrar); pintarComparar(); }; });
+  }
+
+  // ----- eventos -----
+  document.querySelectorAll("section.panel input, section.panel select").forEach(function (e) {
+    if (e.closest("#clima") || e.closest("#precios") || e.id === "dia" || e.id === "camp-sel" || e.id === "ruta-nombre") return;
+    e.addEventListener("input", recalcular);
+  });
+  document.querySelectorAll("[data-pre]").forEach(function (b) { b.onclick = function () { ponerRuta(PRE[b.dataset.pre]); recalcular(); }; });
+  document.querySelectorAll("[data-ver]").forEach(function (b) { b.onclick = function () { ver = b.dataset.ver; document.querySelectorAll("[data-ver]").forEach(function (x) { x.classList.toggle("activo", x === b); }); pintarAnios(); }; });
+  $("guardar").onclick = function () {
+    var r = leerRuta(), nom = $("ruta-nombre").value.trim() || (r.riegoOn ? "Pivot " : "Secano ") + r.siembra + " " + r.nKg + "N";
+    $("guardar-nota").textContent = rutas.agregar({ nombre: nom, ruta: r }) ? "Guardada." : "Ya hay 3 rutas: quitá una en el paso 5.";
+    $("ruta-nombre").value = ""; if (serie) pintarComparar();
+  };
+  $("camp-sel").onchange = function () { campSel = +this.value; pintarAnios(); pintarCampania(true); };
+  $("dia").oninput = function () { pintarCampania(false); };
+  $("play").onclick = function () {
+    if (timer) { clearInterval(timer); timer = null; this.textContent = "▶ Reproducir"; return; }
+    var sl = $("dia"), b = this; sl.value = 1; b.textContent = "❚❚ Pausa";
+    timer = setInterval(function () {
+      sl.value = Math.min(+sl.max, +sl.value + 3); pintarCampania(false);
+      if (+sl.value >= +sl.max) { clearInterval(timer); timer = null; b.textContent = "▶ Reproducir"; }
+    }, 60);
+  };
+
+  var repintarPrecios = SIM.panelPrecios($("precios"), ["maiz_pizarra_rosario", "dolar_mayorista", "urea", "riego_inversion_pivot", "riego_mm_red", "riego_mm_solar", "riego_mm_gasoil"], recalcular);
+  SIM.actualizarDolar().then(function (ok) { if (ok) { repintarPrecios(); recalcular(); } });
+  SIM.listaFuentes($("fuentes"), D);
+
+  CLIMA.montar($("clima"), function (s) {
+    serie = s; anios = CLIMA.campanias(s); clases = CLIMA.clasificar(s, 92, 274);
+    $("camp-sel").innerHTML = anios.map(function (y) { return '<option value="' + y + '">' + y + "/" + String(y + 1).slice(2) + " · " + clases[y].tipo + " (" + clases[y].lluvia + " mm)</option>"; }).join("");
+    campSel = null;
+    $("sin-clima").hidden = true; $("resultados").hidden = false;
+    recalcular(); $("camp-sel").value = campSel;
+  });
+  recalcular();
+})();
+</script>
+</body>
+</html>

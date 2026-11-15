@@ -1,0 +1,38 @@
+name: Actualizar precios
+
+on:
+  schedule:
+    # 21:30 UTC = 18:30 de Argentina, lunes a viernes (después del cierre de los mercados)
+    - cron: "30 21 * * 1-5"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: precios
+  cancel-in-progress: false
+
+jobs:
+  actualizar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Leer fuentes y reescribir comun/precios.js
+        run: python scripts/actualizar_precios.py
+      - name: Verificar que precios.js sigue siendo JavaScript válido
+        run: node -e "globalThis.window={}; require('./comun/precios.js'); const n=Object.keys(window.PRECIOS.items).length; if(n<5) throw new Error('faltan ítems'); console.log(n+' ítems OK')"
+      - name: Publicar si hubo cambios
+        run: |
+          if git diff --quiet -- comun/precios.js; then
+            echo "Sin cambios."
+          else
+            git config user.name "simulador-agro-bot"
+            git config user.email "actions@users.noreply.github.com"
+            git add comun/precios.js
+            git commit -m "Precios del $(TZ=America/Argentina/Buenos_Aires date +%d/%m/%Y)"
+            git push
+          fi

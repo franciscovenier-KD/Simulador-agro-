@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Simulador Agro</title>
+<link rel="stylesheet" href="comun/sim.css">
+</head>
+<body>
+<div class="cont">
+  <header class="tapa">
+    <h1>Probalo antes de invertir</h1>
+    <p class="bajada">Simulaciones de decisiones de campo con el clima histórico de tu localidad y precios de mercado vigentes. Elegí la que te sirve, armá tus rutas y comparalas.</p>
+  </header>
+
+  <section class="panel">
+    <h2>Tu localidad</h2>
+    <p class="nota">Se usa en todas las simulaciones. Podés cambiarla dentro de cada una.</p>
+    <div id="clima"></div>
+  </section>
+
+  <div class="fila" style="margin-top:22px" id="filtros"></div>
+  <div class="tarjetas" id="tarjetas"></div>
+
+  <section class="panel">
+    <h2>Precios de referencia</h2>
+    <p class="nota" id="precios-estado"></p>
+    <div class="tabla-scroll"><table id="tabla-precios"></table></div>
+  </section>
+
+  <p class="aviso-pie">Herramienta de exploración. Los modelos son simplificados y no reemplazan el criterio de un asesor ni un proyecto de inversión formal. Cada simulación muestra sus fuentes y supuestos.</p>
+</div>
+
+<script src="comun/precios.js"></script>
+<script src="comun/sim.js"></script>
+<script src="comun/clima.js"></script>
+<script src="simulaciones.js"></script>
+<script>
+(function () {
+  CLIMA.montar(document.getElementById("clima"), function () {});
+
+  var rubros = ["Todas"].concat(SIMULACIONES.map(function (s) { return s.rubro; }).filter(function (r, i, a) { return a.indexOf(r) === i; }));
+  var activo = "Todas";
+  function pintar() {
+    document.getElementById("filtros").innerHTML = "";
+    rubros.forEach(function (r) {
+      var b = document.createElement("button");
+      b.type = "button"; b.className = "chip" + (r === activo ? " activo" : ""); b.textContent = r;
+      b.onclick = function () { activo = r; pintar(); };
+      document.getElementById("filtros").appendChild(b);
+    });
+    document.getElementById("tarjetas").innerHTML = SIMULACIONES
+      .filter(function (s) { return activo === "Todas" || s.rubro === activo; })
+      .map(function (s) {
+        return '<a class="tarjeta" href="sims/' + s.id + '/index.html"><span class="rubro">' + SIM.esc(s.rubro) + "</span><h2>" + SIM.esc(s.titulo) + "</h2>" +
+          "<strong>" + SIM.esc(s.pregunta) + "</strong><p class=\"nota\">" + SIM.esc(s.resumen) + "</p><ul>" +
+          s.decide.map(function (d) { return "<li>" + SIM.esc(d) + "</li>"; }).join("") + "</ul></a>";
+      }).join("");
+  }
+  pintar();
+
+  function tablaPrecios() {
+    var h = "<tr><th>Dato</th><th>Valor</th><th>Fecha del dato</th><th>Estado</th></tr>";
+    Object.keys(PRECIOS.items).forEach(function (k) {
+      var p = SIM.precio(k), it = p.item;
+      h += "<tr><td><a href=\"" + SIM.esc(it.url) + "\" target=\"_blank\" rel=\"noopener\">" + SIM.esc(it.nombre) + "</a></td><td>" +
+        SIM.num(it.valor, it.valor < 100 ? 2 : 0) + " " + SIM.esc(it.unidad) + "</td><td>" + SIM.fecha(it.fecha) + "</td><td>" +
+        (p.viejo ? '<span class="etq viejo">desactualizado</span>' : '<span class="etq ok">' + (it.enVivo ? "en vivo" : "vigente") + "</span>") + "</td></tr>";
+    });
+    document.getElementById("tabla-precios").innerHTML = h;
+    document.getElementById("precios-estado").textContent = "Última actualización automática: " + SIM.fecha(PRECIOS.actualizado) + ". Dentro de cada simulación podés reemplazar cualquier valor por el tuyo.";
+  }
+  tablaPrecios();
+  SIM.actualizarDolar().then(tablaPrecios);
+})();
+</script>
+</body>
+</html>
