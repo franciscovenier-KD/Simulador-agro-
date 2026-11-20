@@ -4,15 +4,15 @@
    vigenciaDias = a partir de cuántos días el sitio lo marca como desactualizado.
    No borrar claves: las simulaciones las buscan por nombre. */
 window.PRECIOS = {
-  actualizado: "2026-11-19",
+  actualizado: "2026-11-20",
   items: {
     dolar_mayorista: {
-      nombre: "Dólar mayorista", valor: 1565, unidad: "ARS/USD", fecha: "2026-11-19",
+      nombre: "Dólar mayorista", valor: 1580, unidad: "ARS/USD", fecha: "2026-11-20",
       fuente: "DolarApi (se actualiza en vivo al abrir la página; este valor es el respaldo)",
       url: "https://dolarapi.com/", vigenciaDias: 5
     },
     maiz_pizarra_rosario: {
-      nombre: "Maíz, pizarra Rosario", valor: 271000, unidad: "ARS/t", fecha: "2026-11-18",
+      nombre: "Maíz, pizarra Rosario", valor: 272000, unidad: "ARS/t", fecha: "2026-11-19",
       fuente: "Cámara Arbitral de Cereales, Bolsa de Comercio de Rosario",
       url: "https://www.cac.bcr.com.ar/es/precios-de-pizarra", vigenciaDias: 7
     },
