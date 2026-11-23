@@ -4,7 +4,7 @@
    vigenciaDias = a partir de cuántos días el sitio lo marca como desactualizado.
    No borrar claves: las simulaciones las buscan por nombre. */
 window.PRECIOS = {
-  actualizado: "2026-11-20",
+  actualizado: "2026-11-23",
   items: {
     dolar_mayorista: {
       nombre: "Dólar mayorista", valor: 1580, unidad: "ARS/USD", fecha: "2026-11-20",
